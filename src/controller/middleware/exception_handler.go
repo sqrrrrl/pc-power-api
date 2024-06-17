@@ -17,7 +17,7 @@ func ExceptionHandler() gin.HandlerFunc {
 
 		for _, err := range c.Errors {
 			id := uuid.New()
-			util.LogError(err, id, c)
+			util.LogApiError(err, id, c)
 			handleUnexpectedError(c, id)
 		}
 	}
