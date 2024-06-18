@@ -1,17 +1,17 @@
 package gateway
 
 import (
-	"encoding/json"
-	stdErrors "errors"
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/pc-power-api/src/api/gateway"
+	"github.com/pc-power-api/src/exceptions"
 	"github.com/pc-power-api/src/util"
 	"net/http"
 )
 
-var InvalidStatusError = stdErrors.New("status must be an int between 0 and 1")
+var DeviceNotConnectedError = exceptions.NewDeviceUnreachable("the device is not online")
+var FailedToCommunicateWithDeviceError = exceptions.NewDeviceUnreachable("the communication with the device failed")
 
 const InvalidMessageTitle = "The message is invalid"
 const InvalidMessageDescription = "The message is not valid json or is not following the schema"
@@ -40,10 +40,11 @@ func (h *DeviceGatewayHandler) DeviceHandler(w http.ResponseWriter, r *http.Requ
 
 	h.conns[deviceId] = conn
 	h.listen(conn)
+	delete(h.conns, deviceId)
+	conn.Close()
 }
 
 func (h *DeviceGatewayHandler) listen(conn *websocket.Conn) {
-	defer conn.Close()
 	for {
 		var data gateway.DeviceMessage
 		err := conn.ReadJSON(&data)
@@ -52,12 +53,7 @@ func (h *DeviceGatewayHandler) listen(conn *websocket.Conn) {
 			if errors.As(err, &closeError) {
 				break
 			}
-			var unmarshalTypeError *json.UnmarshalTypeError
-			if errors.As(err, &unmarshalTypeError) {
-				h.handleError(errors.New(InvalidStatusError), conn)
-			} else {
-				h.handleError(errors.New(err), conn)
-			}
+			h.handleError(errors.New(err), conn)
 		}
 	}
 }
@@ -71,4 +67,23 @@ func (h *DeviceGatewayHandler) handleError(err *errors.Error, conn *websocket.Co
 	message.SetDescription(InvalidMessageDescription)
 	conn.WriteJSON(message)
 	util.LogWebsocketError(err, id, conn, GatewayType)
+}
+
+func (h *DeviceGatewayHandler) PressPowerSwitch(deviceId string, hardPowerOff bool) *errors.Error {
+	if conn, ok := h.conns[deviceId]; ok {
+		var op int
+		if hardPowerOff {
+			op = gateway.HardPowerOffOpcode
+		} else {
+			op = gateway.PressPowerSwitchOpcode
+		}
+		message := gateway.CommandMessage{
+			Opcode: op,
+		}
+		err := conn.WriteJSON(message)
+		if err != nil {
+			return errors.New(FailedToCommunicateWithDeviceError)
+		}
+	}
+	return errors.New(DeviceNotConnectedError)
 }
