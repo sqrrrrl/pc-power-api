@@ -6,6 +6,7 @@ import (
 	"github.com/pc-power-api/src/controller"
 	"github.com/pc-power-api/src/controller/middleware"
 	"github.com/pc-power-api/src/infra/entity"
+	"github.com/pc-power-api/src/infra/repo"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"log"
@@ -18,14 +19,16 @@ func main() {
 	_ = r.SetTrustedProxies(nil)
 	port := os.Getenv("PORT")
 
-	controller.NewDevicesHandler(r)
-
 	db := connectDatabase()
 	err := db.AutoMigrate(&entity.User{})
 	err = db.AutoMigrate(&entity.Device{})
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	var deviceRepository = repo.NewDeviceRepository(db)
+
+	controller.NewDevicesHandler(r, deviceRepository)
 
 	log.Fatal(r.Run(":" + port))
 }

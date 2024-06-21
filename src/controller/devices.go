@@ -5,16 +5,19 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/pc-power-api/src/api"
 	"github.com/pc-power-api/src/controller/gateway"
+	"github.com/pc-power-api/src/infra/repo"
 	"net/http"
 )
 
 type DevicesHandler struct {
 	deviceGateway *gateway.DeviceGatewayHandler
+	deviceRepo    *repo.DeviceRepository
 }
 
-func NewDevicesHandler(e *gin.Engine) {
+func NewDevicesHandler(e *gin.Engine, deviceRepo *repo.DeviceRepository) {
 	handler := &DevicesHandler{
 		deviceGateway: gateway.NewDeviceGatewayHandler(),
+		deviceRepo:    deviceRepo,
 	}
 
 	group := e.Group("/devices")
