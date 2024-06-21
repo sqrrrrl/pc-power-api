@@ -28,8 +28,20 @@ func NewDevicesHandler(e *gin.Engine, deviceRepo *repo.DeviceRepository) {
 }
 
 func (h *DevicesHandler) gateway(c *gin.Context) {
-	//TODO: get the device id from the authenticated device
-	h.deviceGateway.DeviceHandler(c.Writer, c.Request, "1")
+	var data *api.DeviceIdentify
+	err := c.ShouldBindQuery(&data)
+	if err != nil {
+		c.Error(errors.New(err))
+		return
+	}
+
+	device, aerr := h.deviceRepo.GetByIdAndSecret(data)
+	if aerr != nil {
+		c.Error(aerr)
+		return
+	}
+
+	h.deviceGateway.DeviceHandler(c.Writer, c.Request, device.Code)
 }
 
 func (h *DevicesHandler) pressPowerSwitch(c *gin.Context) {
@@ -40,9 +52,9 @@ func (h *DevicesHandler) pressPowerSwitch(c *gin.Context) {
 		c.Error(errors.New(err))
 		return
 	}
-	err = h.deviceGateway.PressPowerSwitch(data.DeviceId, data.Hard)
-	if err != nil {
-		c.Error(err)
+	aerr := h.deviceGateway.PressPowerSwitch(data.DeviceId, data.Hard)
+	if aerr != nil {
+		c.Error(aerr)
 		return
 	}
 	c.Status(http.StatusOK)
