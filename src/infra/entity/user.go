@@ -8,4 +8,5 @@ type User struct {
 	gorm.Model
 	Username string `gorm:"unique"`
 	Password string
+	Devices  []Device
 }
