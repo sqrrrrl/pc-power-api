@@ -23,6 +23,9 @@ const ObjectNotFoundDescription string = "The object requested was not found on 
 func ExceptionHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
+		if len(c.Errors) == 0 {
+			return
+		}
 
 		var err = c.Errors[0]
 		id := uuid.New()
