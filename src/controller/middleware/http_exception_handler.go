@@ -17,6 +17,8 @@ const DeviceUnreachableTitle string = "Device unreachable"
 const DeviceUnreachableDescription string = "The device selected was not able to receive the command"
 const InvalidJsonTitle string = "Invalid json"
 const InvalidJsonDescription string = "The json provided is invalid"
+const ObjectNotFoundTitle string = "Object not found"
+const ObjectNotFoundDescription string = "The object requested was not found on the server"
 
 func ExceptionHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -34,6 +36,11 @@ func ExceptionHandler() gin.HandlerFunc {
 		var jsonSyntaxError *json.SyntaxError
 		if errors.As(err, &jsonTypeError) || errors.As(err, &jsonSyntaxError) {
 			handleInvalidJson(c, id, err.Error())
+			return
+		}
+		var objectNotFoundError *exceptions.ObjectNotFound
+		if errors.As(err, &objectNotFoundError) {
+			handleObjectNotFound(c, id, err.Error())
 			return
 		}
 		handleUnexpectedError(c, id)
@@ -73,4 +80,16 @@ func handleInvalidJson(c *gin.Context, id uuid.UUID, message string) {
 	err.SetMessage(message)
 	err.SetExpected(true)
 	c.AbortWithStatusJSON(http.StatusBadRequest, err)
+}
+
+func handleObjectNotFound(c *gin.Context, id uuid.UUID, message string) {
+	var err api.ErrorResponse
+
+	err.SetId(id.String())
+	err.SetTitle(ObjectNotFoundTitle)
+	err.SetStatus(http.StatusNotFound)
+	err.SetDescription(ObjectNotFoundDescription)
+	err.SetMessage(message)
+	err.SetExpected(true)
+	c.AbortWithStatusJSON(http.StatusNotFound, err)
 }
