@@ -84,6 +84,8 @@ func (h *DeviceGatewayHandler) PressPowerSwitch(deviceId string, hardPowerOff bo
 		if err != nil {
 			return errors.New(FailedToCommunicateWithDeviceError)
 		}
+	} else {
+		return errors.New(DeviceNotConnectedError)
 	}
-	return errors.New(DeviceNotConnectedError)
+	return nil
 }
