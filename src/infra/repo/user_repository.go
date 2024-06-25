@@ -8,8 +8,7 @@ import (
 )
 
 var UsernameAlreadyExistsError = exceptions.NewObjectAlreadyExist("This username is already taken")
-var ObjectNotFoundError = exceptions.NewObjectNotFound("The user was not found")
-var InvalidCredentialsError = exceptions.NewObjectNotFound("The credentials provided are invalid")
+var UserNotFoundError = exceptions.NewObjectNotFound("The user was not found")
 
 type UserRepository struct {
 	db *gorm.DB
@@ -37,19 +36,19 @@ func (r *UserRepository) GetById(id string) (*entity.User, *errors.Error) {
 	err := r.db.First(&user, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(ObjectNotFoundError)
+			return nil, errors.New(UserNotFoundError)
 		}
 		return nil, errors.New(err)
 	}
 	return &user, nil
 }
 
-func (r *UserRepository) GetByUsernameAndPassword(username string, password string) (*entity.User, *errors.Error) {
+func (r *UserRepository) GetByUsername(username string) (*entity.User, *errors.Error) {
 	var user entity.User
-	err := r.db.Where("username = ? AND password = ?", username, password).First(&user).Error
+	err := r.db.Where("username = ?", username).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(InvalidCredentialsError)
+			return nil, errors.New(UserNotFoundError)
 		}
 		return nil, errors.New(err)
 	}

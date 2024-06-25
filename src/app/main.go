@@ -15,9 +15,7 @@ import (
 
 func main() {
 	r := gin.Default()
-	r.Use(middleware.ExceptionHandler())
 	_ = r.SetTrustedProxies(nil)
-	port := os.Getenv("PORT")
 
 	db := connectDatabase()
 	err := db.AutoMigrate(&entity.User{})
@@ -27,9 +25,21 @@ func main() {
 	}
 
 	var deviceRepository = repo.NewDeviceRepository(db)
+	var userRepository = repo.NewUserRepository(db)
+
+	authenticationMiddleWare := middleware.NewAuthenticationMiddleware(userRepository)
+	authMiddlewareHandlerFunction, authMiddlewareHandler := authenticationMiddleWare.AuthMiddleware()
+
+	r.Use(authMiddlewareHandlerFunction)
+	r.Use(middleware.ExceptionHandler())
 
 	controller.NewDevicesHandler(r, deviceRepository)
 
+	auth := r.Group("/auth")
+	auth.POST("/login", authMiddlewareHandler.LoginHandler)
+	auth.GET("/refresh_token", authMiddlewareHandler.RefreshHandler)
+
+	port := os.Getenv("PORT")
 	log.Fatal(r.Run(":" + port))
 }
 
