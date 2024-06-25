@@ -33,7 +33,7 @@ func (r *UserRepository) Create(user *entity.User) *errors.Error {
 
 func (r *UserRepository) GetById(id string) (*entity.User, *errors.Error) {
 	var user entity.User
-	err := r.db.First(&user, id).Error
+	err := r.db.Preload("Devices").First(&user, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New(UserNotFoundError)

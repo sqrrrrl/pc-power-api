@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-const IdentityKey = "id"
 const Realm = "PcPowerApi"
 
 type JwtUser struct {
@@ -44,16 +43,18 @@ func (a *AuthenticationMiddleware) AuthMiddleware() (gin.HandlerFunc, *jwt.GinJW
 
 func (a *AuthenticationMiddleware) initAuthSecurity() *jwt.GinJWTMiddleware {
 	return &jwt.GinJWTMiddleware{
-		Realm:       Realm,
-		Key:         []byte(os.Getenv("JWT_SECRET")),
-		Timeout:     time.Hour,
-		MaxRefresh:  time.Hour * 24 * 31,
-		IdentityKey: IdentityKey,
+		Realm:      Realm,
+		Key:        []byte(os.Getenv("JWT_SECRET")),
+		Timeout:    time.Hour,
+		MaxRefresh: time.Hour * 24 * 31,
 
-		Authenticator: a.authenticator(),
-		TokenLookup:   "header: Authorization, query: token, cookie: jwt",
-		TokenHeadName: "Bearer",
-		TimeFunc:      time.Now,
+		Authenticator:   a.authenticator(),
+		Unauthorized:    a.unauthorized(),
+		PayloadFunc:     a.payloadFunc(),
+		IdentityHandler: a.identityHandler(),
+		TokenLookup:     "header: Authorization, query: token, cookie: jwt",
+		TokenHeadName:   "Bearer",
+		TimeFunc:        time.Now,
 	}
 }
 
@@ -73,5 +74,40 @@ func (a *AuthenticationMiddleware) authenticator() func(c *gin.Context) (interfa
 			}, nil
 		}
 		return nil, jwt.ErrFailedAuthentication
+	}
+}
+
+func (a *AuthenticationMiddleware) unauthorized() func(c *gin.Context, code int, message string) {
+	return func(c *gin.Context, code int, message string) {
+		if message == jwt.ErrEmptyCookieToken.Error() {
+			message = "The token is invalid"
+		}
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": message,
+		})
+	}
+}
+
+func (a *AuthenticationMiddleware) payloadFunc() func(data interface{}) jwt.MapClaims {
+	return func(data interface{}) jwt.MapClaims {
+		if v, ok := data.(*JwtUser); ok {
+			return jwt.MapClaims{
+				jwt.IdentityKey: v,
+			}
+		}
+		return jwt.MapClaims{}
+	}
+}
+
+func (a *AuthenticationMiddleware) identityHandler() func(c *gin.Context) interface{} {
+	return func(c *gin.Context) interface{} {
+		claims := jwt.ExtractClaims(c)
+		var identity map[string]interface{}
+		identity = claims["identity"].(map[string]interface{})
+		return &JwtUser{
+			ID:       identity["ID"].(string),
+			Username: identity["Username"].(string),
+		}
 	}
 }

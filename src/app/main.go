@@ -33,11 +33,11 @@ func main() {
 	r.Use(authMiddlewareHandlerFunction)
 	r.Use(middleware.ExceptionHandler())
 
-	controller.NewDevicesHandler(r, deviceRepository)
-
 	auth := r.Group("/auth")
 	auth.POST("/login", authMiddlewareHandler.LoginHandler)
 	auth.GET("/refresh_token", authMiddlewareHandler.RefreshHandler)
+
+	controller.NewDevicesHandler(r, authMiddlewareHandler, deviceRepository, userRepository)
 
 	port := os.Getenv("PORT")
 	log.Fatal(r.Run(":" + port))
