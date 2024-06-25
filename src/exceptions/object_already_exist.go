@@ -9,3 +9,7 @@ func NewObjectAlreadyExist(message string) *ObjectAlreadyExist {
 		Message: message,
 	}
 }
+
+func (e *ObjectAlreadyExist) Error() string {
+	return e.Message
+}

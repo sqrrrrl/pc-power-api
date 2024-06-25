@@ -19,6 +19,8 @@ const InvalidJsonTitle string = "Invalid json"
 const InvalidJsonDescription string = "The json provided is invalid"
 const ObjectNotFoundTitle string = "Object not found"
 const ObjectNotFoundDescription string = "The object requested was not found on the server"
+const NoAccessTitle string = "No access"
+const NoAccessDescription string = "The user does not have access to this resource"
 
 func ExceptionHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -44,6 +46,11 @@ func ExceptionHandler() gin.HandlerFunc {
 		var objectNotFoundError *exceptions.ObjectNotFound
 		if errors.As(err, &objectNotFoundError) {
 			handleObjectNotFound(c, id, err.Error())
+			return
+		}
+		var noAccessError *exceptions.NoAccess
+		if errors.As(err, &noAccessError) {
+			handleNoAccess(c, id, err.Error())
 			return
 		}
 		handleUnexpectedError(c, id)
@@ -95,4 +102,16 @@ func handleObjectNotFound(c *gin.Context, id uuid.UUID, message string) {
 	err.SetMessage(message)
 	err.SetExpected(true)
 	c.AbortWithStatusJSON(http.StatusNotFound, err)
+}
+
+func handleNoAccess(c *gin.Context, id uuid.UUID, message string) {
+	var err api.ErrorResponse
+
+	err.SetId(id.String())
+	err.SetTitle(NoAccessTitle)
+	err.SetStatus(http.StatusForbidden)
+	err.SetDescription(NoAccessDescription)
+	err.SetMessage(message)
+	err.SetExpected(true)
+	c.AbortWithStatusJSON(http.StatusForbidden, err)
 }
