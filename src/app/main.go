@@ -24,8 +24,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var deviceRepository = repo.NewDeviceRepository(db)
-	var userRepository = repo.NewUserRepository(db)
+	deviceRepository := repo.NewDeviceRepository(db)
+	userRepository := repo.NewUserRepository(db)
 
 	authenticationMiddleWare := middleware.NewAuthenticationMiddleware(userRepository)
 	authMiddlewareHandlerFunction, authMiddlewareHandler := authenticationMiddleWare.AuthMiddleware()
