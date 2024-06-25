@@ -66,12 +66,12 @@ func (h *DevicesHandler) pressPowerSwitch(c *gin.Context) {
 		return
 	}
 
-	if !user.HasDevice(data.DeviceId) {
+	if !user.HasDevice(data.DeviceCode) {
 		c.Error(errors.New(UserDoesNotOwnDevice))
 		return
 	}
 
-	aerr = h.deviceGateway.PressPowerSwitch(data.DeviceId, data.Hard)
+	aerr = h.deviceGateway.PressPowerSwitch(data.DeviceCode, data.Hard)
 	if aerr != nil {
 		c.Error(aerr)
 		return
