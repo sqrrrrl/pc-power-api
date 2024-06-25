@@ -15,7 +15,7 @@ const IdentityKey = "id"
 const Realm = "PcPowerApi"
 
 type JwtUser struct {
-	Id       uint
+	ID       string
 	Username string
 }
 
@@ -68,7 +68,7 @@ func (a *AuthenticationMiddleware) authenticator() func(c *gin.Context) (interfa
 
 		if (aerr == nil) && (bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(credentials.Password)) == nil) {
 			return &JwtUser{
-				Id:       user.ID,
+				ID:       user.ID,
 				Username: user.Username,
 			}, nil
 		}
