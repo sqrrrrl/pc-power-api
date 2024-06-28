@@ -38,6 +38,7 @@ func NewDevicesHandler(e *gin.Engine, jwtMiddleware *jwt.GinJWTMiddleware, devic
 	{
 		group.GET("/gateway", handler.gateway)
 		group.POST("/power-switch", jwtMiddleware.MiddlewareFunc(), handler.pressPowerSwitch)
+		group.POST("/reset-switch", jwtMiddleware.MiddlewareFunc(), handler.pressResetSwitch)
 		group.POST("/", jwtMiddleware.MiddlewareFunc(), handler.createDevice)
 		group.DELETE("/:"+IdPathParam, jwtMiddleware.MiddlewareFunc(), handler.deleteDevice)
 	}
@@ -80,6 +81,33 @@ func (h *DevicesHandler) pressPowerSwitch(c *gin.Context) {
 	}
 
 	aerr = h.deviceGateway.PressPowerSwitch(data.DeviceCode, data.Hard)
+	if aerr != nil {
+		c.Error(aerr)
+		return
+	}
+	c.Status(http.StatusOK)
+}
+
+func (h *DevicesHandler) pressResetSwitch(c *gin.Context) {
+	var data *api.UserCommand
+	err := c.ShouldBind(&data)
+	if err != nil {
+		c.Error(errors.New(err))
+		return
+	}
+
+	user, aerr := h.userRepo.GetById(middleware.GetUserIdFromContext(c))
+	if aerr != nil {
+		c.Error(aerr)
+		return
+	}
+
+	if !user.HasDevice(data.DeviceCode) {
+		c.Error(errors.New(UserDoesNotOwnDevice))
+		return
+	}
+
+	aerr = h.deviceGateway.PressResetSwitch(data.DeviceCode)
 	if aerr != nil {
 		c.Error(aerr)
 		return
