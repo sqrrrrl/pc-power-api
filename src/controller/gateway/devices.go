@@ -89,3 +89,18 @@ func (h *DeviceGatewayHandler) PressPowerSwitch(deviceId string, hardPowerOff bo
 	}
 	return nil
 }
+
+func (h *DeviceGatewayHandler) PressResetSwitch(deviceId string) *errors.Error {
+	if conn, ok := h.conns[deviceId]; ok {
+		message := gateway.CommandMessage{
+			Opcode: gateway.PressResetSwitchOpcode,
+		}
+		err := conn.WriteJSON(message)
+		if err != nil {
+			return errors.New(FailedToCommunicateWithDeviceError)
+		}
+	} else {
+		return errors.New(DeviceNotConnectedError)
+	}
+	return nil
+}
