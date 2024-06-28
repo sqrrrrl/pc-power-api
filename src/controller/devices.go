@@ -17,6 +17,7 @@ import (
 
 const DeviceCodeLength = 6
 const DeviceSecretLength = 16
+const IdPathParam = "id"
 
 var UserDoesNotOwnDevice = exceptions.NewNoAccess("The user does not own this device")
 
@@ -38,6 +39,7 @@ func NewDevicesHandler(e *gin.Engine, jwtMiddleware *jwt.GinJWTMiddleware, devic
 		group.GET("/gateway", handler.gateway)
 		group.POST("/power-switch", jwtMiddleware.MiddlewareFunc(), handler.pressPowerSwitch)
 		group.POST("/", jwtMiddleware.MiddlewareFunc(), handler.createDevice)
+		group.DELETE("/:"+IdPathParam, jwtMiddleware.MiddlewareFunc(), handler.deleteDevice)
 	}
 }
 
@@ -114,9 +116,33 @@ func (h *DevicesHandler) createDevice(c *gin.Context) {
 	}
 
 	c.JSON(200, api.DeviceInfo{
+		ID:     device.ID,
 		Name:   device.Name,
 		Code:   device.Code,
 		Secret: device.Secret,
 		Status: device.Status,
 	})
+}
+
+func (h *DevicesHandler) deleteDevice(c *gin.Context) {
+	deviceId := c.Param(IdPathParam)
+	device, aerr := h.deviceRepo.GetById(deviceId)
+	if aerr != nil {
+		c.Error(aerr)
+		return
+	}
+
+	ownerId := middleware.GetUserIdFromContext(c)
+	if ownerId != device.UserID {
+		c.Error(errors.New(UserDoesNotOwnDevice))
+		return
+	}
+
+	aerr = h.deviceRepo.Delete(device)
+	if aerr != nil {
+		c.Error(aerr)
+		return
+	}
+
+	c.Status(http.StatusOK)
 }
