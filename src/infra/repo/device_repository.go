@@ -46,7 +46,7 @@ func (r *DeviceRepository) Delete(device *entity.Device) *errors.Error {
 
 func (r *DeviceRepository) GetById(id string) (*entity.Device, *errors.Error) {
 	var device entity.Device
-	err := r.db.First(&device, id).Error
+	err := r.db.Where("id = ?", id).First(&device).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New(DeviceNotFoundError)
