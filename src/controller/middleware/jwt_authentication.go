@@ -111,3 +111,10 @@ func (a *AuthenticationMiddleware) identityHandler() func(c *gin.Context) interf
 		}
 	}
 }
+
+func GetUserIdFromContext(c *gin.Context) string {
+	if jwtUser, ok := c.Get(jwt.IdentityKey); ok {
+		return jwtUser.(*JwtUser).ID
+	}
+	return ""
+}

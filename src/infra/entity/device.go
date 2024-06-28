@@ -14,5 +14,5 @@ type Device struct {
 	Code      string `gorm:"unique"`
 	Secret    string
 	Status    int `gorm:"type:bit"`
-	UserID    uint
+	UserID    string
 }
