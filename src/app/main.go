@@ -18,8 +18,7 @@ func main() {
 	_ = r.SetTrustedProxies(nil)
 
 	db := connectDatabase()
-	err := db.AutoMigrate(&entity.User{})
-	err = db.AutoMigrate(&entity.Device{})
+	err := db.AutoMigrate(&entity.User{}, &entity.Device{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -33,10 +32,7 @@ func main() {
 	r.Use(authMiddlewareHandlerFunction)
 	r.Use(middleware.ExceptionHandler())
 
-	auth := r.Group("/auth")
-	auth.POST("/login", authMiddlewareHandler.LoginHandler)
-	auth.GET("/refresh_token", authMiddlewareHandler.RefreshHandler)
-
+	controller.NewAuthHandler(r, authMiddlewareHandler, userRepository)
 	controller.NewDevicesHandler(r, authMiddlewareHandler, deviceRepository, userRepository)
 
 	port := os.Getenv("PORT")
