@@ -59,8 +59,7 @@ func (h *DevicesHandler) pressPowerSwitch(c *gin.Context) {
 		return
 	}
 
-	jwtUser, _ := c.Get(jwt.IdentityKey)
-	user, aerr := h.userRepo.GetById(jwtUser.(*middleware.JwtUser).ID)
+	user, aerr := h.userRepo.GetById(middleware.GetUserIdFromContext(c))
 	if aerr != nil {
 		c.Error(aerr)
 		return
