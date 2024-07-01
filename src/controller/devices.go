@@ -41,6 +41,7 @@ func NewDevicesHandler(e *gin.Engine, jwtMiddleware *jwt.GinJWTMiddleware, devic
 		group.GET("/", jwtMiddleware.MiddlewareFunc(), handler.getDevices)
 		group.POST("/", jwtMiddleware.MiddlewareFunc(), handler.createDevice)
 		group.GET("/:"+IdPathParam, jwtMiddleware.MiddlewareFunc(), handler.getDevice)
+		group.PUT("/:"+IdPathParam, jwtMiddleware.MiddlewareFunc(), handler.updateDevice)
 		group.DELETE("/:"+IdPathParam, jwtMiddleware.MiddlewareFunc(), handler.deleteDevice)
 	}
 }
@@ -194,7 +195,7 @@ func (h *DevicesHandler) getDevice(c *gin.Context) {
 }
 
 func (h *DevicesHandler) createDevice(c *gin.Context) {
-	var deviceInfo *api.DeviceInfo
+	var deviceInfo *api.DeviceCreateInfo
 	err := c.ShouldBind(&deviceInfo)
 	if err != nil {
 		c.Error(errors.New(err))
@@ -215,6 +216,42 @@ func (h *DevicesHandler) createDevice(c *gin.Context) {
 	}
 
 	aerr := h.deviceRepo.Create(&device)
+	if aerr != nil {
+		c.Error(aerr)
+		return
+	}
+
+	c.JSON(http.StatusOK, api.DeviceInfo{
+		ID:     device.ID,
+		Name:   device.Name,
+		Code:   device.Code,
+		Secret: device.Secret,
+	})
+}
+
+func (h *DevicesHandler) updateDevice(c *gin.Context) {
+	deviceId := c.Param(IdPathParam)
+	device, aerr := h.deviceRepo.GetById(deviceId)
+	if aerr != nil {
+		c.Error(aerr)
+		return
+	}
+
+	ownerId := middleware.GetUserIdFromContext(c)
+	if ownerId != device.UserID {
+		c.Error(errors.New(UserDoesNotOwnDevice))
+		return
+	}
+
+	var deviceInfo *api.DeviceCreateInfo
+	err := c.ShouldBind(&deviceInfo)
+	if err != nil {
+		c.Error(errors.New(err))
+		return
+	}
+
+	device.Name = deviceInfo.Name
+	aerr = h.deviceRepo.Update(device)
 	if aerr != nil {
 		c.Error(aerr)
 		return
