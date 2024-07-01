@@ -20,18 +20,17 @@ const DeviceSecretLength = 16
 const IdPathParam = "id"
 
 var UserDoesNotOwnDevice = exceptions.NewNoAccess("The user does not own this device")
+var DeviceNotConnectedError = exceptions.NewDeviceUnreachable("the device is not online")
 
 type DevicesHandler struct {
-	deviceGateway *gateway.DeviceGatewayHandler
-	deviceRepo    *repo.DeviceRepository
-	userRepo      *repo.UserRepository
+	deviceRepo *repo.DeviceRepository
+	userRepo   *repo.UserRepository
 }
 
 func NewDevicesHandler(e *gin.Engine, jwtMiddleware *jwt.GinJWTMiddleware, deviceRepo *repo.DeviceRepository, userRepo *repo.UserRepository) {
 	handler := &DevicesHandler{
-		deviceGateway: gateway.NewDeviceGatewayHandler(),
-		deviceRepo:    deviceRepo,
-		userRepo:      userRepo,
+		deviceRepo: deviceRepo,
+		userRepo:   userRepo,
 	}
 
 	group := e.Group("/devices")
@@ -60,7 +59,7 @@ func (h *DevicesHandler) gateway(c *gin.Context) {
 		return
 	}
 
-	h.deviceGateway.DeviceHandler(c.Writer, c.Request, device.Code)
+	gateway.NewDeviceClient(c.Writer, c.Request, device.Code)
 }
 
 func (h *DevicesHandler) pressPowerSwitch(c *gin.Context) {
@@ -82,9 +81,14 @@ func (h *DevicesHandler) pressPowerSwitch(c *gin.Context) {
 		return
 	}
 
-	aerr = h.deviceGateway.PressPowerSwitch(data.DeviceCode, data.Hard)
-	if aerr != nil {
-		c.Error(aerr)
+	if deviceClient, ok := gateway.ConnectedClients[data.DeviceCode]; ok {
+		aerr = deviceClient.PressPowerSwitch(data.Hard)
+		if aerr != nil {
+			c.Error(aerr)
+			return
+		}
+	} else {
+		c.Error(errors.New(DeviceNotConnectedError))
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -109,9 +113,14 @@ func (h *DevicesHandler) pressResetSwitch(c *gin.Context) {
 		return
 	}
 
-	aerr = h.deviceGateway.PressResetSwitch(data.DeviceCode)
-	if aerr != nil {
-		c.Error(aerr)
+	if deviceClient, ok := gateway.ConnectedClients[data.DeviceCode]; ok {
+		aerr = deviceClient.PressResetSwitch()
+		if aerr != nil {
+			c.Error(aerr)
+			return
+		}
+	} else {
+		c.Error(errors.New(DeviceNotConnectedError))
 		return
 	}
 	c.Status(http.StatusNoContent)
