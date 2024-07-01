@@ -1,24 +1,37 @@
 package gateway
 
 import (
+	"encoding/json"
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/pc-power-api/src/api/gateway"
+	"github.com/pc-power-api/src/controller/middleware"
 	"github.com/pc-power-api/src/exceptions"
 	"github.com/pc-power-api/src/util"
+	"net"
 	"net/http"
+	"sync"
+	"time"
 )
 
-var DeviceNotConnectedError = exceptions.NewDeviceUnreachable("the device is not online")
 var FailedToCommunicateWithDeviceError = exceptions.NewDeviceUnreachable("the communication with the device failed")
 
 const InvalidMessageTitle = "The message is invalid"
 const InvalidMessageDescription = "The message is not valid json or is not following the schema"
+const NewSessionOpenedTitle = "Another session has been opened"
+const NewSessionOpenedDescription = "Another session has been opened, this one will be closed"
 const GatewayType = "device"
+const PingPeriod = 2 * time.Minute
+const PongWait = PingPeriod + time.Minute
 
-type DeviceGatewayHandler struct {
-	conns map[string]*websocket.Conn
+var ConnectedClients = make(map[string]*DeviceClient)
+
+type DeviceClient struct {
+	conn       *websocket.Conn
+	status     int
+	deviceCode string
+	writeMu    sync.Mutex
 }
 
 var upgrader = websocket.Upgrader{
@@ -26,81 +39,134 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func NewDeviceGatewayHandler() *DeviceGatewayHandler {
-	return &DeviceGatewayHandler{
-		conns: make(map[string]*websocket.Conn),
-	}
-}
-
-func (h *DeviceGatewayHandler) DeviceHandler(w http.ResponseWriter, r *http.Request, deviceId string) {
+func NewDeviceClient(w http.ResponseWriter, r *http.Request, deviceCode string) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
+	conn.SetReadDeadline(time.Now().Add(PongWait))
+	conn.SetPongHandler(func(string) error { conn.SetReadDeadline(time.Now().Add(PongWait)); return nil })
 
-	h.conns[deviceId] = conn
-	h.listen(conn)
-	delete(h.conns, deviceId)
-	conn.Close()
+	client := &DeviceClient{
+		conn:       conn,
+		status:     0,
+		deviceCode: deviceCode,
+		writeMu:    sync.Mutex{},
+	}
+	if ConnectedClients[deviceCode] != nil {
+		ConnectedClients[deviceCode].handleError(errors.New(NewSessionOpenedDescription), NewSessionOpenedTitle, NewSessionOpenedDescription)
+		ConnectedClients[deviceCode].destroy()
+	}
+	ConnectedClients[deviceCode] = client
+
+	go client.listen()
+	go client.sendPing()
 }
 
-func (h *DeviceGatewayHandler) listen(conn *websocket.Conn) {
-	for {
+func (c *DeviceClient) listen() {
+	for c.conn != nil {
 		var data gateway.DeviceMessage
-		err := conn.ReadJSON(&data)
+		err := c.conn.ReadJSON(&data)
 		if err != nil {
 			var closeError *websocket.CloseError
+			var timeoutError net.Error
+			var jsonTypeError *json.UnmarshalTypeError
+			var jsonSyntaxError *json.SyntaxError
 			if errors.As(err, &closeError) {
-				break
+				c.destroy()
+			} else if errors.As(err, &timeoutError) && timeoutError.Timeout() {
+				c.destroy()
+			} else if errors.As(err, &jsonTypeError) || errors.As(err, &jsonSyntaxError) {
+				c.handleError(errors.New(err), InvalidMessageTitle, InvalidMessageDescription)
+			} else {
+				c.handleError(errors.New(err))
 			}
-			h.handleError(errors.New(err), conn)
+		} else {
+			c.status = data.Status
 		}
 	}
 }
 
-func (h *DeviceGatewayHandler) handleError(err *errors.Error, conn *websocket.Conn) {
-	id := uuid.New()
-	message := gateway.ErrorMessage{}
-	message.SetId(id.String())
-	message.SetMessage(err.Error())
-	message.SetTitle(InvalidMessageTitle)
-	message.SetDescription(InvalidMessageDescription)
-	conn.WriteJSON(message)
-	util.LogWebsocketError(err, id, conn, GatewayType)
+func (c *DeviceClient) sendPing() {
+	ticker := time.NewTicker(PingPeriod)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			c.writeMu.Lock()
+			if c.conn == nil {
+				return
+			}
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				c.destroy()
+			}
+			c.writeMu.Unlock()
+		}
+	}
 }
 
-func (h *DeviceGatewayHandler) PressPowerSwitch(deviceId string, hardPowerOff bool) *errors.Error {
-	if conn, ok := h.conns[deviceId]; ok {
-		var op int
-		if hardPowerOff {
-			op = gateway.HardPowerOffOpcode
-		} else {
-			op = gateway.PressPowerSwitchOpcode
-		}
-		message := gateway.CommandMessage{
-			Opcode: op,
-		}
-		err := conn.WriteJSON(message)
-		if err != nil {
-			return errors.New(FailedToCommunicateWithDeviceError)
-		}
+func (c *DeviceClient) GetStatus() int {
+	return c.status
+}
+
+func (c *DeviceClient) destroy() {
+	if c.conn != nil {
+		c.conn.Close()
+		c.conn = nil
+	}
+	delete(ConnectedClients, c.deviceCode)
+}
+
+func (c *DeviceClient) handleError(err *errors.Error, info ...string) {
+	id := uuid.New()
+	errorTitle := middleware.UnexpectedErrorTitle
+	errorDescription := middleware.UnexpectedErrorDescription
+	errorMsg := ""
+	if len(info) > 0 {
+		errorTitle = info[0]
+		errorDescription = info[1]
+		errorMsg = err.Error()
+	}
+	message := gateway.ErrorMessage{}
+	message.SetId(id.String())
+	message.SetMessage(errorMsg)
+	message.SetTitle(errorTitle)
+	message.SetDescription(errorDescription)
+	c.conn.WriteJSON(message)
+	util.LogWebsocketError(err, id, c.conn, GatewayType)
+}
+
+func (c *DeviceClient) PressPowerSwitch(hardPowerOff bool) *errors.Error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	var op int
+	if hardPowerOff {
+		op = gateway.HardPowerOffOpcode
 	} else {
-		return errors.New(DeviceNotConnectedError)
+		op = gateway.PressPowerSwitchOpcode
+	}
+	message := gateway.CommandMessage{
+		Opcode: op,
+	}
+	err := c.conn.WriteJSON(message)
+	if err != nil {
+		c.destroy()
+		return errors.New(FailedToCommunicateWithDeviceError)
 	}
 	return nil
 }
 
-func (h *DeviceGatewayHandler) PressResetSwitch(deviceId string) *errors.Error {
-	if conn, ok := h.conns[deviceId]; ok {
-		message := gateway.CommandMessage{
-			Opcode: gateway.PressResetSwitchOpcode,
-		}
-		err := conn.WriteJSON(message)
-		if err != nil {
-			return errors.New(FailedToCommunicateWithDeviceError)
-		}
-	} else {
-		return errors.New(DeviceNotConnectedError)
+func (c *DeviceClient) PressResetSwitch() *errors.Error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	message := gateway.CommandMessage{
+		Opcode: gateway.PressResetSwitchOpcode,
+	}
+	err := c.conn.WriteJSON(message)
+	if err != nil {
+		c.destroy()
+		return errors.New(FailedToCommunicateWithDeviceError)
 	}
 	return nil
 }
