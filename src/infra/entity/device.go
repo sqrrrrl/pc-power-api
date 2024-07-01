@@ -13,6 +13,5 @@ type Device struct {
 	Name      string
 	Code      string `gorm:"unique"`
 	Secret    string
-	Status    int `gorm:"type:bit"`
 	UserID    string
 }
