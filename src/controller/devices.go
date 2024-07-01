@@ -87,7 +87,7 @@ func (h *DevicesHandler) pressPowerSwitch(c *gin.Context) {
 		c.Error(aerr)
 		return
 	}
-	c.Status(http.StatusOK)
+	c.Status(http.StatusNoContent)
 }
 
 func (h *DevicesHandler) pressResetSwitch(c *gin.Context) {
@@ -114,7 +114,7 @@ func (h *DevicesHandler) pressResetSwitch(c *gin.Context) {
 		c.Error(aerr)
 		return
 	}
-	c.Status(http.StatusOK)
+	c.Status(http.StatusNoContent)
 }
 
 func (h *DevicesHandler) getDevices(c *gin.Context) {
@@ -136,7 +136,7 @@ func (h *DevicesHandler) getDevices(c *gin.Context) {
 		})
 	}
 
-	c.JSON(200, devicesInfo)
+	c.JSON(http.StatusOK, devicesInfo)
 }
 
 func (h *DevicesHandler) getDevice(c *gin.Context) {
@@ -153,7 +153,7 @@ func (h *DevicesHandler) getDevice(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, api.DeviceInfo{
+	c.JSON(http.StatusOK, api.DeviceInfo{
 		ID:     device.ID,
 		Name:   device.Name,
 		Code:   device.Code,
@@ -190,7 +190,7 @@ func (h *DevicesHandler) createDevice(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, api.DeviceInfo{
+	c.JSON(http.StatusOK, api.DeviceInfo{
 		ID:     device.ID,
 		Name:   device.Name,
 		Code:   device.Code,
@@ -219,5 +219,5 @@ func (h *DevicesHandler) deleteDevice(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusOK)
+	c.Status(http.StatusNoContent)
 }
