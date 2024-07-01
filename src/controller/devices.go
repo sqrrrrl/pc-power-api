@@ -134,18 +134,33 @@ func (h *DevicesHandler) getDevices(c *gin.Context) {
 		return
 	}
 
-	var devicesInfo []api.DeviceInfo
+	devicesInfoList := api.DeviceInfoList{
+		OnlineDevices:  make([]api.DeviceInfo, 0),
+		OfflineDevices: make([]api.DeviceInfo, 0),
+	}
 	for _, device := range user.Devices {
-		devicesInfo = append(devicesInfo, api.DeviceInfo{
-			ID:     device.ID,
-			Name:   device.Name,
-			Code:   device.Code,
-			Secret: device.Secret,
-			Status: device.Status,
-		})
+		if conn, ok := gateway.ConnectedClients[device.Code]; ok {
+			devicesInfoList.OnlineDevices = append(devicesInfoList.OnlineDevices, api.DeviceInfo{
+				ID:     device.ID,
+				Name:   device.Name,
+				Code:   device.Code,
+				Secret: device.Secret,
+				Status: conn.GetStatus(),
+				Online: true,
+			})
+		} else {
+			devicesInfoList.OfflineDevices = append(devicesInfoList.OfflineDevices, api.DeviceInfo{
+				ID:     device.ID,
+				Name:   device.Name,
+				Code:   device.Code,
+				Secret: device.Secret,
+				Status: 0,
+				Online: false,
+			})
+		}
 	}
 
-	c.JSON(http.StatusOK, devicesInfo)
+	c.JSON(http.StatusOK, devicesInfoList)
 }
 
 func (h *DevicesHandler) getDevice(c *gin.Context) {
@@ -162,12 +177,19 @@ func (h *DevicesHandler) getDevice(c *gin.Context) {
 		return
 	}
 
+	status := 0
+	online := false
+	if conn, ok := gateway.ConnectedClients[device.Code]; ok {
+		status = conn.GetStatus()
+		online = true
+	}
 	c.JSON(http.StatusOK, api.DeviceInfo{
 		ID:     device.ID,
 		Name:   device.Name,
 		Code:   device.Code,
 		Secret: device.Secret,
-		Status: device.Status,
+		Status: status,
+		Online: online,
 	})
 }
 
@@ -189,7 +211,6 @@ func (h *DevicesHandler) createDevice(c *gin.Context) {
 		Name:   deviceInfo.Name,
 		Code:   deviceCode,
 		Secret: deviceSecret,
-		Status: 0,
 		UserID: ownerId,
 	}
 
@@ -204,7 +225,6 @@ func (h *DevicesHandler) createDevice(c *gin.Context) {
 		Name:   device.Name,
 		Code:   device.Code,
 		Secret: device.Secret,
-		Status: device.Status,
 	})
 }
 
