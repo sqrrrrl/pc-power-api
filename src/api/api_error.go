@@ -5,12 +5,13 @@ type ErrorResponse struct {
 }
 
 type ErrorDetails struct {
-	Id          string `json:"id"`
-	Status      int    `json:"status"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Message     string `json:"message"`
-	Expected    bool   `json:"expected"`
+	Id          string   `json:"id"`
+	Status      int      `json:"status"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Message     string   `json:"message,omitempty"`
+	Errors      []string `json:"errors,omitempty"`
+	Expected    bool     `json:"expected"`
 }
 
 func (err *ErrorResponse) SetId(id string) {
@@ -31,6 +32,10 @@ func (err *ErrorResponse) SetDescription(description string) {
 
 func (err *ErrorResponse) SetMessage(message string) {
 	err.Details.Message = message
+}
+
+func (err *ErrorResponse) SetErrors(errors []string) {
+	err.Details.Errors = errors
 }
 
 func (err *ErrorResponse) SetExpected(expected bool) {
