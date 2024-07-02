@@ -139,6 +139,9 @@ func (c *DeviceClient) destroy() {
 }
 
 func (c *DeviceClient) handleError(err *errors.Error, info ...string) {
+	if c.conn == nil {
+		return
+	}
 	id := uuid.New()
 	errorTitle := middleware.UnexpectedErrorTitle
 	errorDescription := middleware.UnexpectedErrorDescription
@@ -153,9 +156,7 @@ func (c *DeviceClient) handleError(err *errors.Error, info ...string) {
 	message.SetMessage(errorMsg)
 	message.SetTitle(errorTitle)
 	message.SetDescription(errorDescription)
-	if c.conn != nil {
-		c.conn.WriteJSON(message)
-	}
+	c.conn.WriteJSON(message)
 	util.LogWebsocketError(err, id, c.conn, GatewayType)
 }
 
