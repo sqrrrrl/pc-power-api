@@ -78,12 +78,12 @@ func (h *DevicesHandler) pressPowerSwitch(c *gin.Context) {
 		return
 	}
 
-	if !user.HasDevice(data.DeviceCode) {
+	if !user.HasDevice(data.DeviceID) {
 		c.Error(errors.New(UserDoesNotOwnDevice))
 		return
 	}
 
-	if deviceClient, ok := gateway.ConnectedDevices[data.DeviceCode]; ok {
+	if deviceClient, ok := gateway.ConnectedDevices[data.DeviceID]; ok {
 		aerr = deviceClient.PressPowerSwitch(data.Hard)
 		if aerr != nil {
 			c.Error(aerr)
@@ -110,12 +110,12 @@ func (h *DevicesHandler) pressResetSwitch(c *gin.Context) {
 		return
 	}
 
-	if !user.HasDevice(data.DeviceCode) {
+	if !user.HasDevice(data.DeviceID) {
 		c.Error(errors.New(UserDoesNotOwnDevice))
 		return
 	}
 
-	if deviceClient, ok := gateway.ConnectedDevices[data.DeviceCode]; ok {
+	if deviceClient, ok := gateway.ConnectedDevices[data.DeviceID]; ok {
 		aerr = deviceClient.PressResetSwitch()
 		if aerr != nil {
 			c.Error(aerr)
@@ -141,7 +141,7 @@ func (h *DevicesHandler) getDevices(c *gin.Context) {
 		OfflineDevices: make([]api.DeviceInfo, 0),
 	}
 	for _, device := range user.Devices {
-		if conn, ok := gateway.ConnectedDevices[device.Code]; ok {
+		if conn, ok := gateway.ConnectedDevices[device.ID]; ok {
 			devicesInfoList.OnlineDevices = append(devicesInfoList.OnlineDevices, api.DeviceInfo{
 				ID:     device.ID,
 				Name:   device.Name,
@@ -181,7 +181,7 @@ func (h *DevicesHandler) getDevice(c *gin.Context) {
 
 	status := 0
 	online := false
-	if conn, ok := gateway.ConnectedDevices[device.Code]; ok {
+	if conn, ok := gateway.ConnectedDevices[device.ID]; ok {
 		status = conn.GetStatus()
 		online = true
 	}

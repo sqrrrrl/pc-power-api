@@ -30,7 +30,7 @@ func NewAuthHandler(e *gin.Engine, jwtMiddleware *jwt.GinJWTMiddleware, userRepo
 }
 
 func (h *AuthHandler) register(c *gin.Context) {
-	var credentials *api.Credentials
+	var credentials *api.RegisterCredentials
 	err := c.ShouldBind(&credentials)
 	if err != nil {
 		c.Error(errors.New(err))

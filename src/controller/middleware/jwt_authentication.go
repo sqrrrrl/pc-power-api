@@ -60,7 +60,7 @@ func (a *AuthenticationMiddleware) initAuthSecurity() *jwt.GinJWTMiddleware {
 
 func (a *AuthenticationMiddleware) authenticator() func(c *gin.Context) (interface{}, error) {
 	return func(c *gin.Context) (interface{}, error) {
-		var credentials *api.Credentials
+		var credentials *api.LoginCredentials
 		if err := c.ShouldBind(&credentials); err != nil {
 			return "", jwt.ErrMissingLoginValues
 		}
