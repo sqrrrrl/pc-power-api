@@ -11,6 +11,7 @@ import (
 	"github.com/pc-power-api/src/exceptions"
 	"github.com/pc-power-api/src/infra/entity"
 	"github.com/pc-power-api/src/infra/repo"
+	"github.com/pc-power-api/src/pubsub"
 	"github.com/pc-power-api/src/util"
 	"net/http"
 )
@@ -60,7 +61,7 @@ func (h *DevicesHandler) gateway(c *gin.Context) {
 		return
 	}
 
-	gateway.NewDeviceClient(c.Writer, c.Request, device.Code)
+	gateway.NewDeviceClient(c.Writer, c.Request, device)
 }
 
 func (h *DevicesHandler) pressPowerSwitch(c *gin.Context) {
@@ -82,7 +83,7 @@ func (h *DevicesHandler) pressPowerSwitch(c *gin.Context) {
 		return
 	}
 
-	if deviceClient, ok := gateway.ConnectedClients[data.DeviceCode]; ok {
+	if deviceClient, ok := gateway.ConnectedDevices[data.DeviceCode]; ok {
 		aerr = deviceClient.PressPowerSwitch(data.Hard)
 		if aerr != nil {
 			c.Error(aerr)
@@ -114,7 +115,7 @@ func (h *DevicesHandler) pressResetSwitch(c *gin.Context) {
 		return
 	}
 
-	if deviceClient, ok := gateway.ConnectedClients[data.DeviceCode]; ok {
+	if deviceClient, ok := gateway.ConnectedDevices[data.DeviceCode]; ok {
 		aerr = deviceClient.PressResetSwitch()
 		if aerr != nil {
 			c.Error(aerr)
@@ -140,7 +141,7 @@ func (h *DevicesHandler) getDevices(c *gin.Context) {
 		OfflineDevices: make([]api.DeviceInfo, 0),
 	}
 	for _, device := range user.Devices {
-		if conn, ok := gateway.ConnectedClients[device.Code]; ok {
+		if conn, ok := gateway.ConnectedDevices[device.Code]; ok {
 			devicesInfoList.OnlineDevices = append(devicesInfoList.OnlineDevices, api.DeviceInfo{
 				ID:     device.ID,
 				Name:   device.Name,
@@ -180,7 +181,7 @@ func (h *DevicesHandler) getDevice(c *gin.Context) {
 
 	status := 0
 	online := false
-	if conn, ok := gateway.ConnectedClients[device.Code]; ok {
+	if conn, ok := gateway.ConnectedDevices[device.Code]; ok {
 		status = conn.GetStatus()
 		online = true
 	}
@@ -220,6 +221,7 @@ func (h *DevicesHandler) createDevice(c *gin.Context) {
 		c.Error(aerr)
 		return
 	}
+	pubsub.Publish(ownerId, device)
 
 	c.JSON(http.StatusOK, api.DeviceInfo{
 		ID:     device.ID,
