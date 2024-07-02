@@ -153,7 +153,9 @@ func (c *DeviceClient) handleError(err *errors.Error, info ...string) {
 	message.SetMessage(errorMsg)
 	message.SetTitle(errorTitle)
 	message.SetDescription(errorDescription)
-	c.conn.WriteJSON(message)
+	if c.conn != nil {
+		c.conn.WriteJSON(message)
+	}
 	util.LogWebsocketError(err, id, c.conn, GatewayType)
 }
 
