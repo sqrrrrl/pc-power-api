@@ -70,7 +70,10 @@ func NewDeviceClient(w http.ResponseWriter, r *http.Request, device *entity.Devi
 		writeMu: sync.Mutex{},
 	}
 	if ConnectedDevices[device.ID] != nil && ConnectedDevices[device.ID].conn != nil {
-		ConnectedDevices[device.ID].handleError(errors.New(NewSessionOpenedDescription), NewSessionOpenedTitle, NewSessionOpenedDescription)
+		ConnectedDevices[device.ID].conn.WriteMessage(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseNormalClosure, NewSessionOpenedDescription),
+		)
 		ConnectedDevices[device.ID].destroy()
 	}
 	addConnectedDevice(device, client)
