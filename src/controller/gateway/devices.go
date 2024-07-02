@@ -96,6 +96,7 @@ func (c *DeviceClient) listen() {
 				c.handleError(errors.New(err), InvalidMessageTitle, InvalidMessageDescription)
 			} else {
 				c.handleError(errors.New(err))
+				c.destroy()
 			}
 		} else {
 			c.status = data.Status
