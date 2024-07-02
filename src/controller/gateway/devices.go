@@ -30,12 +30,12 @@ const PongWait = PingPeriod + time.Minute
 var ConnectedDevices = make(map[string]*DeviceClient)
 
 func addConnectedDevice(device *entity.Device, client *DeviceClient) {
-	ConnectedDevices[device.Code] = client
+	ConnectedDevices[device.ID] = client
 	notifyDeviceState(device, client.GetStatus(), true)
 }
 
 func removeConnectedDevice(device *entity.Device) {
-	delete(ConnectedDevices, device.Code)
+	delete(ConnectedDevices, device.ID)
 	notifyDeviceState(device, 0, false)
 }
 
@@ -45,7 +45,7 @@ func notifyDeviceState(device *entity.Device, status int, online bool) {
 		Status: status,
 		Online: online,
 	}
-	pubsub.Publish(device.Code, deviceState)
+	pubsub.Publish(device.ID, deviceState)
 }
 
 type DeviceClient struct {
@@ -69,9 +69,9 @@ func NewDeviceClient(w http.ResponseWriter, r *http.Request, device *entity.Devi
 		device:  device,
 		writeMu: sync.Mutex{},
 	}
-	if ConnectedDevices[device.Code] != nil {
-		ConnectedDevices[device.Code].handleError(errors.New(NewSessionOpenedDescription), NewSessionOpenedTitle, NewSessionOpenedDescription)
-		ConnectedDevices[device.Code].destroy()
+	if ConnectedDevices[device.ID] != nil {
+		ConnectedDevices[device.ID].handleError(errors.New(NewSessionOpenedDescription), NewSessionOpenedTitle, NewSessionOpenedDescription)
+		ConnectedDevices[device.ID].destroy()
 	}
 	addConnectedDevice(device, client)
 

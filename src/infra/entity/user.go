@@ -15,9 +15,9 @@ type User struct {
 	Devices   []Device
 }
 
-func (u *User) HasDevice(deviceCode string) bool {
+func (u *User) HasDevice(deviceID string) bool {
 	for _, device := range u.Devices {
-		if device.Code == deviceCode {
+		if device.ID == deviceID {
 			return true
 		}
 	}
