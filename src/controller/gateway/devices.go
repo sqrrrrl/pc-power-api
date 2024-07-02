@@ -21,7 +21,6 @@ var FailedToCommunicateWithDeviceError = exceptions.NewDeviceUnreachable("the co
 
 const InvalidMessageTitle = "The message is invalid"
 const InvalidMessageDescription = "The message is not valid json or is not following the schema"
-const NewSessionOpenedTitle = "Another session has been opened"
 const NewSessionOpenedDescription = "Another session has been opened, this one will be closed"
 const GatewayType = "device"
 const PingPeriod = 2 * time.Minute
