@@ -8,6 +8,8 @@ import (
 	"github.com/pc-power-api/src/api/gateway"
 	"github.com/pc-power-api/src/controller/middleware"
 	"github.com/pc-power-api/src/exceptions"
+	"github.com/pc-power-api/src/infra/entity"
+	"github.com/pc-power-api/src/pubsub"
 	"github.com/pc-power-api/src/util"
 	"net"
 	"net/http"
@@ -25,21 +27,35 @@ const GatewayType = "device"
 const PingPeriod = 2 * time.Minute
 const PongWait = PingPeriod + time.Minute
 
-var ConnectedClients = make(map[string]*DeviceClient)
+var ConnectedDevices = make(map[string]*DeviceClient)
+
+func addConnectedDevice(device *entity.Device, client *DeviceClient) {
+	ConnectedDevices[device.Code] = client
+	notifyDeviceState(device, client.GetStatus(), true)
+}
+
+func removeConnectedDevice(device *entity.Device) {
+	delete(ConnectedDevices, device.Code)
+	notifyDeviceState(device, 0, false)
+}
+
+func notifyDeviceState(device *entity.Device, status int, online bool) {
+	deviceState := gateway.DeviceState{
+		ID:     device.ID,
+		Status: status,
+		Online: online,
+	}
+	pubsub.Publish(device.Code, deviceState)
+}
 
 type DeviceClient struct {
-	conn       *websocket.Conn
-	status     int
-	deviceCode string
-	writeMu    sync.Mutex
+	conn    *websocket.Conn
+	status  int
+	device  *entity.Device
+	writeMu sync.Mutex
 }
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
-func NewDeviceClient(w http.ResponseWriter, r *http.Request, deviceCode string) {
+func NewDeviceClient(w http.ResponseWriter, r *http.Request, device *entity.Device) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
@@ -48,16 +64,16 @@ func NewDeviceClient(w http.ResponseWriter, r *http.Request, deviceCode string) 
 	conn.SetPongHandler(func(string) error { conn.SetReadDeadline(time.Now().Add(PongWait)); return nil })
 
 	client := &DeviceClient{
-		conn:       conn,
-		status:     0,
-		deviceCode: deviceCode,
-		writeMu:    sync.Mutex{},
+		conn:    conn,
+		status:  0,
+		device:  device,
+		writeMu: sync.Mutex{},
 	}
-	if ConnectedClients[deviceCode] != nil {
-		ConnectedClients[deviceCode].handleError(errors.New(NewSessionOpenedDescription), NewSessionOpenedTitle, NewSessionOpenedDescription)
-		ConnectedClients[deviceCode].destroy()
+	if ConnectedDevices[device.Code] != nil {
+		ConnectedDevices[device.Code].handleError(errors.New(NewSessionOpenedDescription), NewSessionOpenedTitle, NewSessionOpenedDescription)
+		ConnectedDevices[device.Code].destroy()
 	}
-	ConnectedClients[deviceCode] = client
+	addConnectedDevice(device, client)
 
 	go client.listen()
 	go client.sendPing()
@@ -83,6 +99,7 @@ func (c *DeviceClient) listen() {
 			}
 		} else {
 			c.status = data.Status
+			notifyDeviceState(c.device, c.status, true)
 		}
 	}
 }
@@ -115,7 +132,7 @@ func (c *DeviceClient) destroy() {
 		c.conn.Close()
 		c.conn = nil
 	}
-	delete(ConnectedClients, c.deviceCode)
+	removeConnectedDevice(c.device)
 }
 
 func (c *DeviceClient) handleError(err *errors.Error, info ...string) {

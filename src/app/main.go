@@ -33,6 +33,7 @@ func main() {
 	r.Use(middleware.ExceptionHandler())
 
 	controller.NewAuthHandler(r, authMiddlewareHandler, userRepository)
+	controller.NewUsersHandler(r, authMiddlewareHandler, userRepository, deviceRepository)
 	controller.NewDevicesHandler(r, authMiddlewareHandler, deviceRepository, userRepository)
 
 	port := os.Getenv("PORT")
