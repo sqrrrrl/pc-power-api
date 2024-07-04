@@ -13,5 +13,5 @@ type Device struct {
 	Name      string
 	Code      string `gorm:"unique"`
 	Secret    string
-	UserID    string
+	UserID    string `gorm:"size:36"`
 }
