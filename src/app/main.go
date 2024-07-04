@@ -15,7 +15,7 @@ import (
 
 func main() {
 	r := gin.Default()
-	_ = r.SetTrustedProxies(nil)
+	r.SetTrustedProxies([]string{"127.0.0.1", "::1"})
 
 	db := connectDatabase()
 	err := db.AutoMigrate(&entity.User{}, &entity.Device{})
