@@ -82,6 +82,7 @@ func (a *AuthenticationMiddleware) unauthorized() func(c *gin.Context, code int,
 		if message == jwt.ErrEmptyCookieToken.Error() {
 			message = "The token is invalid"
 		}
+		c.Header("WWW-Authenticate", "Bearer realm=\"pcpowerapi\"")
 		c.JSON(code, gin.H{
 			"code":    code,
 			"message": message,
