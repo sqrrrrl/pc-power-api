@@ -52,6 +52,7 @@ type DeviceClient struct {
 	status  int
 	device  *entity.Device
 	writeMu sync.Mutex
+	readMu  sync.Mutex
 }
 
 func NewDeviceClient(w http.ResponseWriter, r *http.Request, device *entity.Device) {
@@ -67,8 +68,11 @@ func NewDeviceClient(w http.ResponseWriter, r *http.Request, device *entity.Devi
 		status:  0,
 		device:  device,
 		writeMu: sync.Mutex{},
+		readMu:  sync.Mutex{},
 	}
 	if ConnectedDevices[device.ID] != nil && ConnectedDevices[device.ID].conn != nil {
+		ConnectedDevices[device.ID].writeMu.Lock()
+		ConnectedDevices[device.ID].readMu.Lock()
 		ConnectedDevices[device.ID].conn.WriteMessage(
 			websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, NewSessionOpenedDescription),
@@ -83,6 +87,7 @@ func NewDeviceClient(w http.ResponseWriter, r *http.Request, device *entity.Devi
 
 func (c *DeviceClient) listen() {
 	for c.conn != nil {
+		c.readMu.Lock()
 		var data gateway.DeviceMessage
 		err := c.conn.ReadJSON(&data)
 		if err != nil {
@@ -104,6 +109,7 @@ func (c *DeviceClient) listen() {
 			c.status = data.Status
 			notifyDeviceState(c.device, c.status, true)
 		}
+		c.readMu.Unlock()
 	}
 }
 
@@ -142,6 +148,8 @@ func (c *DeviceClient) handleError(err *errors.Error, info ...string) {
 	if c.conn == nil {
 		return
 	}
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
 	id := uuid.New()
 	errorTitle := middleware.UnexpectedErrorTitle
 	errorDescription := middleware.UnexpectedErrorDescription
