@@ -34,7 +34,10 @@ func NewUserClient(w http.ResponseWriter, r *http.Request, user *entity.User) {
 // Messages need to be read for the CloseHandler to be called
 func (c *UserClient) listen() {
 	for c.conn != nil {
-		c.conn.ReadMessage()
+		_, _, err := c.conn.ReadMessage()
+		if err != nil {
+			c.destroy()
+		}
 	}
 }
 
