@@ -52,7 +52,6 @@ type DeviceClient struct {
 	status  int
 	device  *entity.Device
 	writeMu sync.Mutex
-	readMu  sync.Mutex
 }
 
 func NewDeviceClient(w http.ResponseWriter, r *http.Request, device *entity.Device) {
@@ -68,10 +67,12 @@ func NewDeviceClient(w http.ResponseWriter, r *http.Request, device *entity.Devi
 		status:  0,
 		device:  device,
 		writeMu: sync.Mutex{},
-		readMu:  sync.Mutex{},
 	}
 	if connectedDevice, ok := ConnectedDevices[device.ID]; ok {
 		connectedDevice.gracefullyCloseSession(NewSessionOpenedDescription)
+	}
+	for ConnectedDevices[device.ID] != nil {
+		//wait for tasks to finish
 	}
 	addConnectedDevice(device, client)
 
@@ -81,22 +82,15 @@ func NewDeviceClient(w http.ResponseWriter, r *http.Request, device *entity.Devi
 
 func (c *DeviceClient) gracefullyCloseSession(reason string) {
 	c.writeMu.Lock()
-	c.readMu.Lock()
 	defer c.writeMu.Unlock()
-	defer c.readMu.Unlock()
 	if c.conn == nil {
 		return
 	}
 	c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, reason))
-	c.destroy()
 }
 
 func (c *DeviceClient) listen() {
-	for {
-		c.readMu.Lock()
-		if c.conn == nil {
-			break
-		}
+	for c.conn != nil {
 		var data gateway.DeviceMessage
 		err := c.conn.ReadJSON(&data)
 		if err != nil {
@@ -118,7 +112,6 @@ func (c *DeviceClient) listen() {
 			c.status = data.Status
 			notifyDeviceState(c.device, c.status, true)
 		}
-		c.readMu.Unlock()
 	}
 }
 
