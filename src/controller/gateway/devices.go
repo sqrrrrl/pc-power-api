@@ -92,8 +92,11 @@ func (c *DeviceClient) gracefullyCloseSession(reason string) {
 }
 
 func (c *DeviceClient) listen() {
-	for c.conn != nil {
+	for {
 		c.readMu.Lock()
+		if c.conn == nil {
+			break
+		}
 		var data gateway.DeviceMessage
 		err := c.conn.ReadJSON(&data)
 		if err != nil {
