@@ -70,19 +70,25 @@ func NewDeviceClient(w http.ResponseWriter, r *http.Request, device *entity.Devi
 		writeMu: sync.Mutex{},
 		readMu:  sync.Mutex{},
 	}
-	if ConnectedDevices[device.ID] != nil && ConnectedDevices[device.ID].conn != nil {
-		ConnectedDevices[device.ID].writeMu.Lock()
-		ConnectedDevices[device.ID].readMu.Lock()
-		ConnectedDevices[device.ID].conn.WriteMessage(
-			websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.CloseNormalClosure, NewSessionOpenedDescription),
-		)
-		ConnectedDevices[device.ID].destroy()
+	if connectedDevice, ok := ConnectedDevices[device.ID]; ok {
+		connectedDevice.gracefullyCloseSession(NewSessionOpenedDescription)
 	}
 	addConnectedDevice(device, client)
 
 	go client.listen()
 	go client.sendPing()
+}
+
+func (c *DeviceClient) gracefullyCloseSession(reason string) {
+	c.writeMu.Lock()
+	c.readMu.Lock()
+	defer c.writeMu.Unlock()
+	defer c.readMu.Unlock()
+	if c.conn == nil {
+		return
+	}
+	c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, reason))
+	c.destroy()
 }
 
 func (c *DeviceClient) listen() {
