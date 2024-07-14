@@ -27,13 +27,18 @@ const PingPeriod = 2 * time.Minute
 const PongWait = PingPeriod + time.Minute
 
 var ConnectedDevices = make(map[string]*DeviceClient)
+var ConnectedDevicesMu = sync.Mutex{}
 
 func addConnectedDevice(device *entity.Device, client *DeviceClient) {
+	ConnectedDevicesMu.Lock()
+	defer ConnectedDevicesMu.Unlock()
 	ConnectedDevices[device.ID] = client
 	notifyDeviceState(device, client.GetStatus(), true)
 }
 
 func removeConnectedDevice(device *entity.Device) {
+	ConnectedDevicesMu.Lock()
+	defer ConnectedDevicesMu.Unlock()
 	delete(ConnectedDevices, device.ID)
 	notifyDeviceState(device, 0, false)
 }
@@ -68,11 +73,19 @@ func NewDeviceClient(w http.ResponseWriter, r *http.Request, device *entity.Devi
 		device:  device,
 		writeMu: sync.Mutex{},
 	}
+	ConnectedDevicesMu.Lock()
 	if connectedDevice, ok := ConnectedDevices[device.ID]; ok {
 		connectedDevice.gracefullyCloseSession(NewSessionOpenedDescription)
 	}
-	for ConnectedDevices[device.ID] != nil {
-		//wait for tasks to finish
+	ConnectedDevicesMu.Unlock()
+
+	for { //wait for tasks to finish
+		ConnectedDevicesMu.Lock()
+		if ConnectedDevices[device.ID] == nil {
+			ConnectedDevicesMu.Unlock()
+			break
+		}
+		ConnectedDevicesMu.Unlock()
 	}
 	addConnectedDevice(device, client)
 
