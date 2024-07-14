@@ -63,6 +63,7 @@ func (h *UsersHandler) getDevices(c *gin.Context) {
 		OfflineDevices: make([]api.DeviceInfo, 0),
 	}
 	for _, device := range user.Devices {
+		gateway.ConnectedDevicesMu.Lock()
 		if conn, ok := gateway.ConnectedDevices[device.ID]; ok {
 			devicesInfoList.OnlineDevices = append(devicesInfoList.OnlineDevices, api.DeviceInfo{
 				ID:     device.ID,
@@ -82,6 +83,7 @@ func (h *UsersHandler) getDevices(c *gin.Context) {
 				Online: false,
 			})
 		}
+		gateway.ConnectedDevicesMu.Unlock()
 	}
 
 	c.JSON(http.StatusOK, devicesInfoList)
@@ -103,6 +105,8 @@ func (h *UsersHandler) getDevice(c *gin.Context) {
 
 	status := 0
 	online := false
+	gateway.ConnectedDevicesMu.Lock()
+	defer gateway.ConnectedDevicesMu.Unlock()
 	if conn, ok := gateway.ConnectedDevices[device.ID]; ok {
 		status = conn.GetStatus()
 		online = true
