@@ -40,4 +40,4 @@ Once the environment is set the API can be started by executing the compiled pro
 ```
 
 # License
-Distributed under the [GPL-3.0 license](https://github.com/sqrrrrl/pc-power-app#GPL-3.0-1-ov-file)
+Distributed under the [GPL-3.0 license](https://github.com/sqrrrrl/pc-power-api#GPL-3.0-1-ov-file)
